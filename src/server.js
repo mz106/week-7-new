@@ -1,65 +1,124 @@
+require("dotenv").config();
 const express = require("express");
+
+const mongoose = require("mongoose");
 
 const app = express();
 
 app.use(express.json());
 
-const books = [];
+const connection = async () => {
+  await mongoose.connect(process.env.MONGO_URI);
+};
 
-app.post("/book", (req, res) => {
-  books.push(req.body);
+connection();
+
+const bookSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  author: {
+    type: String,
+  },
+  genre: {
+    type: String,
+  },
+});
+
+const Book = mongoose.model("Book", bookSchema);
+
+// ============= basic =============
+
+app.post("/book", async (req, res) => {
+  const newBook = await Book.create({
+    title: req.body.title,
+    author: req.body.author,
+    genre: req.body.genre,
+  });
 
   const successResponse = {
     message: "book added",
-    books: books,
+    book: newBook,
   };
 
   res.send(successResponse);
 });
 
-app.get("/book", (req, res) => {
-  const index = books.findIndex(() => req.body.title);
+app.get("/book", async (req, res) => {
+  const book = await Book.find();
 
   const successResponse = {
     message: "book found",
-    book: books[index],
+    book: book,
   };
 
-  res.send({ message: "book found", book: books[index] });
+  res.send({ message: "book found", book: book });
 });
 
-app.get("/book/allBooks", (req, res) => {
+app.get("/book/allBooks", async (req, res) => {
+  const books = await Book.find();
   res.send({ message: "all books", books: books });
 });
 
-app.delete("/book", (req, res) => {
-  const index = books.findIndex((x) => x.title === req.body.title);
-
-  books.splice(index, 1);
+app.delete("/book", async (req, res) => {
+  const deletion = await Book.deleteOne({ title: req.body.title });
 
   const successResponse = {
     message: "deletedBook",
-    books: books,
+    result: deletion,
   };
 
   res.send(successResponse);
 });
 
-app.put("/book", (req, res) => {
-  const index = books.findIndex((x) => x.title === req.body.title);
-  console.log("index: ", index);
-  if (req.body.newAuthor) {
-    books[index].author = req.body.newAuthor;
-  } else if (req.body.newGenre) {
-    books[index].genre = req.body.newGenre;
-  }
+app.put("/book", async (req, res) => {
+  const result = await Book.updateOne(
+    { title: req.body.title },
+    { author: req.body.newAuthor }
+  );
 
   const successResponse = {
     message: "bookUpdated",
-    books: books,
+    result: result,
   };
 
-  res.send({ message: "book updated", books: books });
+  res.send(successResponse);
+});
+
+// =========== stretch ==================
+
+app.put("/book/dynamic", async (req, res) => {
+  const result = await Book.updateOne(
+    { title: req.body.title },
+    { [req.body.filter]: req.body.newValue }
+  );
+
+  const successResponse = {
+    message: "book updated dynamic",
+    result: result,
+  };
+
+  res.send(successResponse);
+});
+
+app.delete("/book/deleteAll", async (req, res) => {
+  const deletion = await Book.deleteMany();
+  const successResponse = {
+    message: "books deleted",
+    result: deletion,
+  };
+  res.send(successResponse);
+});
+
+app.get("/book/:title", async (req, res) => {
+  const book = await Book.findOne({ title: req.params.title });
+  const successResponse = {
+    message: "book found",
+    book: book,
+  };
+  res.send(successResponse);
 });
 
 app.listen(5001, () => {
